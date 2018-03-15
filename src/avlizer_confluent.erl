@@ -172,14 +172,14 @@ decode(Bin) ->
 %% @doc Decode untagged payload.
 -spec decode(regid() | avro:simple_decoder(), binary()) -> avro:out().
 decode(RegId, Bin) when ?IS_REGID(RegId) ->
-  decode(make_decoder(RegId), Bin);
+  decode(get_decoder(RegId), Bin);
 decode(Decoder, Bin) when is_function(Decoder) ->
   Decoder(Bin).
 
 %% @doc Encoded avro-binary with schema tag.
 -spec encode(regid() | avro:simple_encoder(), avro:in()) -> binary().
 encode(RegId, Input) when ?IS_REGID(RegId) ->
-  encode(make_encoder(RegId), Input);
+  encode(get_encoder(RegId), Input);
 encode(Encoder, Input) when is_function(Encoder) ->
   iolist_to_binary(Encoder(Input)).
 
