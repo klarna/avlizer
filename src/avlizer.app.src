@@ -1,0 +1,20 @@
+{application, avlizer,
+ [{description, "Avro Serializer"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications,
+   [kernel,
+    stdlib,
+    inets,
+    ssl
+   ]},
+  {env,[]},
+  {mod, {avlizer, []}},
+  {modules, []},
+  {maintainers, []},
+  {licenses, ["Apache License 2.0"]},
+  {links, [{"Github", "https://github.com/klarna/avlizer"}]},
+  {build_tools, ["rebar3"]},
+  {files, ["src", "include", "rebar.config",
+           "README.md","LICENSE"]}
+ ]}.
