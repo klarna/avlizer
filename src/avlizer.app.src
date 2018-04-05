@@ -1,12 +1,13 @@
 {application, avlizer,
  [{description, "Avro Serializer"},
-  {vsn, "0.1.0"},
+  {vsn, "0.1.1"},
   {registered, []},
   {applications,
    [kernel,
     stdlib,
     inets,
-    ssl
+    ssl,
+    erlavro
    ]},
   {env,[]},
   {mod, {avlizer, []}},

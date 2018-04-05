@@ -186,7 +186,7 @@ encode(Encoder, Input) when is_function(Encoder) ->
 %%%_* gen_server callbacks =====================================================
 
 init(_) ->
-  ets:new(?CACHE, [named_table, protected]),
+  ets:new(?CACHE, [named_table, protected, {read_concurrency, true}]),
   {ok, #{ schema_registry_url := URL
         }} = application:get_env(?APPLICATION, ?MODULE),
   {ok, #{schema_registry_url => URL}}.
