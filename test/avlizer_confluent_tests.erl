@@ -35,23 +35,21 @@ with_meck(RunTestFun) ->
   {setup, fun setup/0, fun cleanup/1, RunTestFun}.
 
 setup() ->
-  application:load(?APPLICATION),
-  application:set_env(?APPLICATION,
-                      avlizer_confluent,
-                      #{schema_registry_url => "localhost"}),
+  os:putenv("AVLIZER_CONFLUENT_SCHEMAREGISTRY_URL", "theurl"),
   application:ensure_all_started(?APPLICATION),
   meck:new(httpc, [passthrough]),
   meck:expect(httpc, request,
-              fun(get, _, _, _) ->
+              fun(get, {"theurl" ++ _, _}, _, _) ->
                   Body = test_download(),
                   {ok, {{ignore, 200, "OK"}, headers, Body}};
-                 (post, _, _, _) ->
+                 (post, {"theurl" ++ _, _, _, _}, _, _) ->
                   Body = <<"{\"id\": 1}">>,
                   {ok, {{ignore, 200, "OK"}, headers, Body}}
               end),
   ok.
 
 cleanup(_) ->
+  os:unsetenv("AVLIZER_CONFLUENT_SCHEMAREGISTRY_URL"),
   meck:unload(),
   application:stop(?APPLICATION),
   ok.
