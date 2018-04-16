@@ -25,9 +25,23 @@
         ]).
 
 start(_StartType, _StartArgs) ->
+  case osenv("AVLIZER_CONFLUENT_SCHEMAREGISTRY_URL", false) of
+    false -> ok;
+    URL ->
+      Vars0 = application:get_env(?APPLICATION, avlizer_confluent, #{}),
+      Vars = Vars0#{schema_registry_url => URL},
+      application:set_env(?APPLICATION, avlizer_confluent, Vars)
+  end,
   avlizer_sup:start_link().
 
 stop(_State) -> ok.
+
+osenv(Name, Default) ->
+  case os:getenv(Name) of
+    "" -> Default; %% VAR=""
+    false -> Default; %% not set
+    Val -> Val
+  end.
 
 %%%_* Emacs ====================================================================
 %%% Local Variables:
