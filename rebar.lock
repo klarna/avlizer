@@ -1,8 +1,8 @@
 {"1.1.0",
-[{<<"erlavro">>,{pkg,<<"erlavro">>,<<"2.6.1">>},0},
+[{<<"erlavro">>,{pkg,<<"erlavro">>,<<"2.6.2">>},0},
  {<<"jsone">>,{pkg,<<"jsone">>,<<"1.4.3">>},1}]}.
 [
 {pkg_hash,[
- {<<"erlavro">>, <<"A7FE8ED3A553AE904446A5258B8AE17C6F7DBB2C47B6B619DFDF4BD14D776677">>},
+ {<<"erlavro">>, <<"44F1299B0403FCCCC488EBB83A72946071989A816045C69FCEF89F71EA0409B6">>},
  {<<"jsone">>, <<"6D5F802136249E64F9D4997043B13355C6EAC314217DC3B19BF3677E351A0641">>}]}
 ].
