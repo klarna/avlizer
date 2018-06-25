@@ -44,3 +44,6 @@ cover:
 dialyzer:
 	@$(rebar_cmd) dialyzer
 
+.PHONY: hex-publish
+hex-publish:
+	@$(rebar_cmd) hex publish
