@@ -1,0 +1,26 @@
+language: erlang
+
+sudo: required
+
+before_install:
+  - git clone https://github.com/erlang/rebar3.git; cd rebar3; ./bootstrap; sudo cp rebar3 /usr/bin; cd ..
+
+notifications:
+  email: false
+
+otp_release:
+  - 21.2
+  - 20.3
+  - 19.3
+
+script:
+  - make edoc
+  - make xref
+  - make eunit
+  - |
+    OTP_RELEASE=`erl -noshell -eval 'io:format(erlang:system_info(otp_release)), halt(0)'`
+    if [ $OTP_RELEASE -eq 21 ]; then
+      make dialyzer
+    fi
+  - make cover
+
