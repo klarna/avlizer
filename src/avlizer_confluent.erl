@@ -261,9 +261,9 @@ encode(Name, Fp, Input) -> encode({Name, Fp}, Input).
 
 init(_) ->
   ets:new(?CACHE, [named_table, protected, {read_concurrency, true}]),
-  {ok, #{ schema_registry_url := URL
-        }} = application:get_env(?APPLICATION, ?MODULE),
-  {ok, #{schema_registry_url => URL}}.
+  %% fail fast for bad config
+  _ = get_registry_url(),
+  {ok, #{}}.
 
 handle_info(Info, State) ->
   error_logger:error_msg("Unknown info: ~p", [Info]),
@@ -275,12 +275,12 @@ handle_cast(Cast, State) ->
 
 handle_call(stop, _From, State) ->
   {stop, normal, State};
-handle_call({register, Ref, JSON}, _From,
-            #{schema_registry_url := URL} = State) ->
+handle_call({register, Ref, JSON}, _From, State) ->
+  URL = get_registry_url(),
   Result = register_schema(URL, Ref, JSON),
   {reply, Result, State};
 handle_call({download, Ref}, _From, State) ->
-  Result = handle_download(Ref, State),
+  Result = handle_download(Ref),
   {reply, Result, State};
 handle_call(Call, _From, State) ->
   {reply, {error, {unknown_call, Call}}, State}.
@@ -293,10 +293,16 @@ terminate(_Reason, _State) ->
 
 %%%_* Internals ================================================================
 
+get_registry_url() ->
+  {ok, #{ schema_registry_url := URL
+        }} = application:get_env(?APPLICATION, ?MODULE),
+  URL.
+
 download(Ref) ->
   gen_server:call(?SERVER, {download, Ref}, infinity).
 
-handle_download(Ref, #{schema_registry_url := URL}) ->
+handle_download(Ref) ->
+  URL = get_registry_url(),
   case do_download(URL, Ref) of
     {ok, JSON} ->
       Schema = decode_and_insert_cache(Ref, JSON),
