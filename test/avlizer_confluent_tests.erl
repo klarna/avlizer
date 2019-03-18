@@ -92,6 +92,21 @@ register_without_cache_test_() ->
         ok = avlizer_confluent:register_schema_with_fp(Name, Fp, Sc)
     end).
 
+no_redownload_test_() ->
+  with_meck(
+    fun() ->
+        Name = <<"name-6">>,
+        Fp = 2,
+        Sc = test_schema(),
+        ok = avlizer_confluent:register_schema_with_fp(Name, Fp, Sc),
+        ?assertMatch({ok, _},
+                     gen_server:call(avlizer_confluent, {download, {Name, Fp}})),
+        ?assertMatch({ok, _},
+                     gen_server:call(avlizer_confluent, {download, {Name, Fp}})),
+        %% expect 2 calls, one upload, one download
+        ?assertEqual(2, meck_history:num_calls('_', httpc, request, '_'))
+    end).
+
 with_meck(RunTestFun) ->
   {setup, fun setup/0, fun cleanup/1, RunTestFun}.
 
