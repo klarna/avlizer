@@ -1,0 +1,22 @@
+language: erlang
+
+sudo: required
+
+before_install:
+  - git clone https://github.com/erlang/rebar3.git; cd rebar3; ./bootstrap; sudo cp rebar3 /usr/bin; cd ..
+
+notifications:
+  email: false
+
+otp_release:
+  - 21.2
+  - 20.3
+  - 19.3
+
+script:
+  - make edoc
+  - make xref
+  - make eunit
+  - make dialyzer
+  - make cover
+
