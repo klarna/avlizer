@@ -77,6 +77,21 @@ make_encoder_decoder_with_fp_test_() ->
         42 = avlizer_confluent:decode(Decoder, Bin)
     end).
 
+register_without_cache_test_() ->
+  with_meck(
+    fun() ->
+        Name = <<"name-5">>,
+        Fp = 2,
+        Sc = test_schema(),
+        Ref = erlang:monitor(process, whereis(avlizer_confluent)),
+        ok = avlizer_confluent:stop(),
+        receive
+          {'DOWN', Ref, process, _, normal} ->
+            ok
+        end,
+        ok = avlizer_confluent:register_schema_with_fp(Name, Fp, Sc)
+    end).
+
 with_meck(RunTestFun) ->
   {setup, fun setup/0, fun cleanup/1, RunTestFun}.
 

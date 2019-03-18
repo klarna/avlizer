@@ -195,8 +195,9 @@ register_schema(Subject, Schema) ->
   register_schema(Subject, JSON).
 
 %% @doc Register schema with name + fingerprint.
+%% crc64 fingerprint is returned.
 -spec register_schema_with_fp(string() | binary(), binary() | avro:type()) ->
-        ok | {error, any()}.
+        {ok, fp()} | {error, any()}.
 register_schema_with_fp(Name, JSON) when is_binary(JSON) ->
   Fp = avro:crc64_fingerprint(JSON),
   case register_schema_with_fp(Name, Fp, JSON) of
@@ -214,13 +215,19 @@ register_schema_with_fp(Name, Schema) ->
                               binary() | avro:type()) -> ok | {error, any()}.
 register_schema_with_fp(Name, Fp, JSON) when is_binary(JSON) ->
   Ref = unify_ref({Name, Fp}),
-  case lookup_cache(Ref) of
+  DoIt = fun() ->
+             case do_register_schema(Ref, JSON) of
+               {ok, _RegId} -> ok;
+               {error, Rsn} -> {error, Rsn}
+             end
+         end,
+  try lookup_cache(Ref) of
     {ok, _} -> ok; %% found in cache
-    false ->
-      case do_register_schema(Ref, JSON) of
-        {ok, _RegId} -> ok;
-        {error, Rsn} -> {error, Rsn}
-      end
+    false -> DoIt()
+  catch
+    error : badarg ->
+      %% no ets
+      DoIt()
   end;
 register_schema_with_fp(Name, Fp, Schema) ->
   JSON = avro:encode_schema(Schema),
@@ -281,7 +288,7 @@ handle_cast(Cast, State) ->
   {noreply, State}.
 
 handle_call(stop, _From, State) ->
-  {stop, normal, State};
+  {stop, normal, ok, State};
 handle_call({download, Ref}, _From, State) ->
   Result = handle_download(Ref),
   {reply, Result, State};
