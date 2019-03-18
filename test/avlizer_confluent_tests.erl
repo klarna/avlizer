@@ -84,9 +84,9 @@ register_without_cache_test_() ->
         Fp = 2,
         Sc = test_schema(),
         Ref = erlang:monitor(process, whereis(avlizer_confluent)),
-        ok = avlizer_confluent:stop(),
+        application:stop(?APPLICATION),
         receive
-          {'DOWN', Ref, process, _, normal} ->
+          {'DOWN', Ref, process, _, shutdown} ->
             ok
         end,
         ok = avlizer_confluent:register_schema_with_fp(Name, Fp, Sc)
