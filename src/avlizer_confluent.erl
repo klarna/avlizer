@@ -312,13 +312,19 @@ download(Ref) ->
   gen_server:call(?SERVER, {download, Ref}, infinity).
 
 handle_download(Ref) ->
-  URL = get_registry_url(),
-  case do_download(URL, Ref) of
-    {ok, JSON} ->
-      Schema = decode_and_insert_cache(Ref, JSON),
+  %% lookup again to avoid concurrent callers re-download
+  case lookup_cache(Ref) of
+    {ok, Schema} ->
       {ok, Schema};
-    Error ->
-      Error
+    false ->
+      URL = get_registry_url(),
+      case do_download(URL, Ref) of
+        {ok, JSON} ->
+          Schema = decode_and_insert_cache(Ref, JSON),
+          {ok, Schema};
+        Error ->
+          Error
+      end
   end.
 
 decode_and_insert_cache(Ref, JSON) ->
