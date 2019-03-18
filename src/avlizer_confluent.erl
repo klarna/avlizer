@@ -189,18 +189,18 @@ maybe_download(Ref) ->
 -spec register_schema(string(), binary() | avro:type()) ->
         {ok, regid()} | {error, any()}.
 register_schema(Subject, JSON) when is_binary(JSON) ->
-  gen_server:call(?SERVER, {register, Subject, JSON}, infinity);
+  do_register_schema(Subject, JSON);
 register_schema(Subject, Schema) ->
   JSON = avro:encode_schema(Schema),
   register_schema(Subject, JSON).
 
 %% @doc Register schema with name + fingerprint.
 -spec register_schema_with_fp(string() | binary(), binary() | avro:type()) ->
-  {ok, fp()} | {error, any()}.
+        ok | {error, any()}.
 register_schema_with_fp(Name, JSON) when is_binary(JSON) ->
   Fp = avro:crc64_fingerprint(JSON),
   case register_schema_with_fp(Name, Fp, JSON) of
-    {ok, _RegId} -> {ok, Fp};
+    ok -> {ok, Fp};
     {error, _} = E -> E
   end;
 register_schema_with_fp(Name, Schema) ->
@@ -211,10 +211,17 @@ register_schema_with_fp(Name, Schema) ->
 %% Different from register_schema_with_fp/2, caller is given the liberty to
 %% generate/assign schema fingerprint.
 -spec register_schema_with_fp(string() | binary(), fp(),
-                              binary() | avro:type()) ->
-  {ok, regid()} | {error, any()}.
+                              binary() | avro:type()) -> ok | {error, any()}.
 register_schema_with_fp(Name, Fp, JSON) when is_binary(JSON) ->
-  gen_server:call(?SERVER, {register, {Name, Fp}, JSON}, infinity);
+  Ref = unify_ref({Name, Fp}),
+  case lookup_cache(Ref) of
+    {ok, _} -> ok; %% found in cache
+    false ->
+      case do_register_schema(Ref, JSON) of
+        {ok, _RegId} -> ok;
+        {error, Rsn} -> {error, Rsn}
+      end
+  end;
 register_schema_with_fp(Name, Fp, Schema) ->
   JSON = avro:encode_schema(Schema),
   register_schema_with_fp(Name, Fp, JSON).
@@ -275,10 +282,6 @@ handle_cast(Cast, State) ->
 
 handle_call(stop, _From, State) ->
   {stop, normal, State};
-handle_call({register, Ref, JSON}, _From, State) ->
-  URL = get_registry_url(),
-  Result = register_schema(URL, Ref, JSON),
-  {reply, Result, State};
 handle_call({download, Ref}, _From, State) ->
   Result = handle_download(Ref),
   {reply, Result, State};
@@ -366,12 +369,13 @@ httpc_download(URL) ->
 %% curl -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" \
 %%      --data '{"schema": "{\"type\": \"string\"}"}' \
 %%      http://localhost:8081/subjects/com.example.name/versions
--spec register_schema(string(), string(), binary()) ->
+-spec do_register_schema(string(), binary()) ->
         {ok, regid()} | {error, any()}.
-register_schema(RegistryURL, {Name, Fp}, SchemaJSON) ->
+do_register_schema({Name, Fp}, SchemaJSON) ->
   Subject = fp_to_subject(Name, Fp),
-  register_schema(RegistryURL, Subject, SchemaJSON);
-register_schema(RegistryURL, Subject, SchemaJSON) ->
+  do_register_schema(Subject, SchemaJSON);
+do_register_schema(Subject, SchemaJSON) ->
+  RegistryURL = get_registry_url(),
   URL = RegistryURL ++ "/subjects/" ++ Subject ++ "/versions",
   Headers = [],
   Body = make_schema_reg_req_body(SchemaJSON),
