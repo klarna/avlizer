@@ -11,6 +11,15 @@ simple_test_() ->
        42 = avlizer_confluent:decode(Id, Bin)
    end).
 
+simple_fp_test_() ->
+  with_meck(
+   fun() ->
+       Name = <<"name-1">>,
+       {ok, Fp} = avlizer_confluent:register_schema_with_fp(Name, test_type()),
+       Bin = avlizer_confluent:encode(Name, Fp, 42),
+       42 = avlizer_confluent:decode(Name, Fp, Bin)
+   end).
+
 get_encoder_decoder_test_() ->
   with_meck(
     fun() ->
@@ -21,12 +30,49 @@ get_encoder_decoder_test_() ->
         42 = avlizer_confluent:decode(Decoder, Bin)
     end).
 
+get_encoder_decoder_fp_test_() ->
+  with_meck(
+    fun() ->
+        Name = <<"name-2">>,
+        {ok, Fp} = avlizer_confluent:register_schema_with_fp(Name, test_schema()),
+        Encoder = avlizer_confluent:get_encoder(Name, Fp),
+        Decoder = avlizer_confluent:get_decoder(Name, Fp),
+        Bin = avlizer_confluent:encode(Encoder, 42),
+        42 = avlizer_confluent:decode(Decoder, Bin)
+    end).
+
+get_encoder_decoder_assign_fp_test_() ->
+  with_meck(
+    fun() ->
+        Name = "name-3",
+        Fp = 1,
+        Sc = test_schema(),
+        {ok, _} = avlizer_confluent:register_schema_with_fp(Name, Fp, Sc),
+        Encoder = avlizer_confluent:get_encoder(Name, Fp),
+        Decoder = avlizer_confluent:get_decoder(Name, Fp),
+        Bin = avlizer_confluent:encode(Encoder, 42),
+        42 = avlizer_confluent:decode(Decoder, Bin)
+    end).
+
 make_encoder_decoder_test_() ->
   with_meck(
     fun() ->
         {ok, Id} = avlizer_confluent:register_schema("subj", test_schema()),
         Encoder = avlizer_confluent:make_encoder(Id),
         Decoder = avlizer_confluent:make_decoder(Id),
+        Bin = avlizer_confluent:encode(Encoder, 42),
+        42 = avlizer_confluent:decode(Decoder, Bin)
+    end).
+
+make_encoder_decoder_with_fp_test_() ->
+  with_meck(
+    fun() ->
+        Name = <<"name-4">>,
+        Fp = "md5-hex",
+        Sc = test_schema(),
+        {ok, _} = avlizer_confluent:register_schema_with_fp(Name, Fp, Sc),
+        Encoder = avlizer_confluent:make_encoder(Name, Fp),
+        Decoder = avlizer_confluent:make_decoder(Name, Fp),
         Bin = avlizer_confluent:encode(Encoder, 42),
         42 = avlizer_confluent:decode(Decoder, Bin)
     end).
