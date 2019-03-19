@@ -34,7 +34,8 @@ get_encoder_decoder_fp_test_() ->
   with_meck(
     fun() ->
         Name = <<"name-2">>,
-        {ok, Fp} = avlizer_confluent:register_schema_with_fp(Name, test_schema()),
+        Sc = test_schema(),
+        {ok, Fp} = avlizer_confluent:register_schema_with_fp(Name, Sc),
         Encoder = avlizer_confluent:get_encoder(Name, Fp),
         Decoder = avlizer_confluent:get_decoder(Name, Fp),
         Bin = avlizer_confluent:encode(Encoder, 42),
@@ -100,9 +101,9 @@ no_redownload_test_() ->
         Sc = test_schema(),
         ok = avlizer_confluent:register_schema_with_fp(Name, Fp, Sc),
         ?assertMatch({ok, _},
-                     gen_server:call(avlizer_confluent, {download, {Name, Fp}})),
+          gen_server:call(avlizer_confluent, {download, {Name, Fp}})),
         ?assertMatch({ok, _},
-                     gen_server:call(avlizer_confluent, {download, {Name, Fp}})),
+          gen_server:call(avlizer_confluent, {download, {Name, Fp}})),
         %% expect 2 calls, one upload, one download
         ?assertEqual(2, meck_history:num_calls('_', httpc, request, '_'))
     end).
