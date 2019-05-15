@@ -12,7 +12,6 @@
   {env,[]},
   {mod, {avlizer, []}},
   {modules, []},
-  {maintainers, []},
   {licenses, ["Apache License 2.0"]},
   {links, [{"Github", "https://github.com/klarna/avlizer"}]},
   {build_tools, ["rebar3"]},
