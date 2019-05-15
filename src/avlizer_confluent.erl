@@ -335,7 +335,7 @@ decode_and_insert_cache(Ref, JSON) ->
   Schema.
 
 insert_cache(Ref, Schema) ->
-  ets:insert(?CACHE, {Ref, Schema}),
+  ets:insert(?CACHE, {unify_ref(Ref), Schema}),
   ok.
 
 lookup_cache(Ref0) ->
