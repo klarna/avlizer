@@ -96,7 +96,7 @@ register_without_cache_test_() ->
 no_redownload_test_() ->
   with_meck(
     fun() ->
-        Name = <<"name-6">>,
+        Name = "name-6",
         Fp = 2,
         Sc = test_schema(),
         ok = avlizer_confluent:register_schema_with_fp(Name, Fp, Sc),
