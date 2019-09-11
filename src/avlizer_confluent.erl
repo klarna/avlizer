@@ -69,6 +69,8 @@
         , get_decoder/2
         , get_encoder/1
         , get_encoder/2
+        , get_schema/1
+        , get_schema/2
         , maybe_download/1
         , register_schema/2
         , register_schema_with_fp/2
@@ -169,6 +171,17 @@ get_encoder(Ref) ->
 
 -spec get_encoder(name(), fp()) -> avro:simple_encoder().
 get_encoder(Name, Fp) -> get_encoder({Name, Fp}).
+
+get_schema(Subject) ->
+  get_schema(Subject, "latest").
+
+get_schema(Subject, Version)  when is_integer(Version)->
+  get_schema(Subject, integer_to_list(Version));
+get_schema(Subject, Version) ->
+  RegistryURL = get_registry_url(),
+  URL = RegistryURL ++ "/subjects/" ++ Subject ++ "/versions/" ++ Version,
+  httpc_download(URL).
+
 
 %% @doc Lookup cache for decoded schema, try to download if not found.
 -spec maybe_download(ref()) -> avro:avro_type().
@@ -353,21 +366,24 @@ unify_ref(Ref) -> Ref.
 
 -spec do_download(string(), ref()) -> {ok, binary()} | {error, any()}.
 do_download(RegistryURL, RegId) when is_integer(RegId) ->
+  RegIdBin = integer_to_binary(RegId),
   URL = RegistryURL ++ "/schemas/ids/" ++ integer_to_list(RegId),
-  httpc_download(URL);
+  {ok, RegIdBin, Schema} = httpc_download(URL),
+  {ok, Schema};
 do_download(RegistryURL, {Name, Fp}) ->
   Subject = fp_to_subject(Name, Fp),
   %% fingerprint is unique, hence always version/1
   URL = RegistryURL ++ "/subjects/" ++ Subject ++ "/versions/1",
-  httpc_download(URL).
+  {ok, _RegIdStr, Schema} = httpc_download(URL),
+  {ok, Schema}.
 
 httpc_download(URL) ->
   case httpc:request(get, {URL, _Headers = []},
                      [{timeout, ?HTTPC_TIMEOUT}], []) of
     {ok, {{_, OK, _}, _RspHeaders, RspBody}} when OK >= 200, OK < 300 ->
-      #{<<"schema">> := SchemaJSON} =
+      #{<<"schema">> := SchemaJSON, <<"id">> := Id} =
         jsone:decode(iolist_to_binary(RspBody)),
-      {ok, SchemaJSON};
+      {ok, Id, SchemaJSON};
     {ok, {{_, Other, _}, _RspHeaders, RspBody}}->
       error_logger:error_msg("Failed to download schema from from ~s:\n~s",
                              [URL, RspBody]),
