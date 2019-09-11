@@ -368,14 +368,22 @@ unify_ref(Ref) -> Ref.
 do_download(RegistryURL, RegId) when is_integer(RegId) ->
   RegIdBin = integer_to_binary(RegId),
   URL = RegistryURL ++ "/schemas/ids/" ++ integer_to_list(RegId),
-  {ok, RegIdBin, Schema} = httpc_download(URL),
-  {ok, Schema};
+   case httpc_download(URL) of
+     {ok, RegIdBin, Schema} ->
+       {ok, Schema};
+     Error ->
+       Error
+   end;
 do_download(RegistryURL, {Name, Fp}) ->
   Subject = fp_to_subject(Name, Fp),
   %% fingerprint is unique, hence always version/1
   URL = RegistryURL ++ "/subjects/" ++ Subject ++ "/versions/1",
-  {ok, _RegIdStr, Schema} = httpc_download(URL),
-  {ok, Schema}.
+  case httpc_download(URL) of
+    {ok, _RegIdBin, Schema} ->
+      {ok, Schema};
+    Error ->
+      Error
+  end.
 
 httpc_download(URL) ->
   case httpc:request(get, {URL, _Headers = []},
