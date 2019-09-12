@@ -131,8 +131,8 @@ setup() ->
   application:ensure_all_started(?APPLICATION),
   meck:new(httpc, [passthrough]),
   meck:expect(httpc, request,
-              fun(get, {"theurl" ++ _, _}, _, _) ->
-                  Body = test_download(),
+              fun(get, {"theurl" ++ Endpoint, _}, _, _) ->
+                  Body = test_download(Endpoint),
                   {ok, {{ignore, 200, "OK"}, headers, Body}};
                  (post, {"theurl" ++ _, _, _, _}, _, _) ->
                   Body = <<"{\"id\": 1}">>,
@@ -147,7 +147,10 @@ cleanup(_) ->
   ok.
 
 %% make a fake JSON as if downloaded from schema registry
-test_download() ->
+test_download("/schemas/ids/" ++ _Id) ->
+  SchemaJSON = test_schema(),
+  jsone:encode(#{<<"schema">> => SchemaJSON});
+test_download(_) ->
   SchemaJSON = test_schema(),
   jsone:encode(#{<<"schema">> => SchemaJSON, <<"id">> => <<"1">>}).
 
