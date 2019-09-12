@@ -176,7 +176,7 @@ get_encoder(Name, Fp) -> get_encoder({Name, Fp}).
 get_schema(Subject) ->
   get_schema(Subject, "latest").
 
--spec get_schema(string(), string()) -> {ok, binary(), binary()} | {error, any()} .
+-spec get_schema(string(), string() | integer()) -> {ok, binary(), binary()} | {error, any()} .
 get_schema(Subject, Version) when is_integer(Version) ->
   get_schema(Subject, integer_to_list(Version));
 get_schema(Subject, Version) ->
