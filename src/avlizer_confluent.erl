@@ -357,7 +357,7 @@ get_registry_url() ->
 download(Ref) ->
   gen_server:call(?SERVER, {download, Ref}, infinity).
 
-%% Download schema from registry and insert into cache.
+%% @doc Download schema from registry and insert into cache.
 handle_download(Ref) ->
   %% This is normally called after checking the cache.
   %% The gen_server serializes multiple process calls so that they
