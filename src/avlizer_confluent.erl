@@ -369,11 +369,11 @@ httpc_download(URL) ->
         jsone:decode(iolist_to_binary(RspBody)),
       {ok, SchemaJSON};
     {ok, {{_, Other, _}, _RspHeaders, RspBody}}->
-      error_logger:error_msg("Failed to download schema from from ~s:\n~s",
+      error_logger:error_msg("Failed to download schema from ~s:\n~s",
                              [URL, RspBody]),
       {error, {bad_http_code, Other}};
     Other ->
-      error_logger:error_msg("Failed to download schema from from ~s:\n~p",
+      error_logger:error_msg("Failed to download schema from ~s:\n~p",
                              [URL, Other]),
       Other
   end.
