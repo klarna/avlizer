@@ -25,13 +25,25 @@
         ]).
 
 start(_StartType, _StartArgs) ->
-  case osenv("AVLIZER_CONFLUENT_SCHEMAREGISTRY_URL", false) of
-    false -> ok;
-    URL ->
-      Vars0 = application:get_env(?APPLICATION, avlizer_confluent, #{}),
-      Vars = Vars0#{schema_registry_url => URL},
-      application:set_env(?APPLICATION, avlizer_confluent, Vars)
+  SchemaRegistryURL = osenv("AVLIZER_CONFLUENT_SCHEMAREGISTRY_URL", false),
+  SchemaRegistrySASLMechanism = osenv("AVLIZER_CONFLUENT_SCHEMAREGISTRY_SASL_MECHANISM", false),
+  SchemaRegistrySASLUsername = osenv("AVLIZER_CONFLUENT_SCHEMAREGISTRY_SASL_USERNAME", false),
+  SchemaRegistrySASLPassword = osenv("AVLIZER_CONFLUENT_SCHEMAREGISTRY_SASL_PASSWORD", false),
+  SASL = {SchemaRegistrySASLMechanism, SchemaRegistrySASLUsername, SchemaRegistrySASLPassword},
+
+  Vars0 = application:get_env(?APPLICATION, avlizer_confluent, #{}),
+
+  Vars1 = case SchemaRegistryURL of
+    false -> Vars0#{};
+    URL -> maps:put(schema_registry_url, URL, Vars0#{})
   end,
+
+  Vars2 = case lists:member(false, tuple_to_list(SASL)) of
+    true -> Vars1;
+    false -> maps:put(schema_registry_sasl, SASL, Vars1)
+  end,
+
+  application:set_env(?APPLICATION, avlizer_confluent, Vars2),
   avlizer_sup:start_link().
 
 stop(_State) -> ok.
