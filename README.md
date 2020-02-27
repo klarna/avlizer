@@ -23,12 +23,12 @@ Or set os env variable:
 `AVLIZER_CONFLUENT_SCHEMAREGISTRY_URL`
 
 ### Authentication support
-avlizer supports SASL `PLAIN` authentication mechanism, to use it make sure schema registry SASL tuple `{Mechanism, Username, Password}` is present in `sys.config` as below
+avlizer supports SASL `PLAIN` authentication mechanism, to use it make sure schema registry SASL tuple `{Mechanism, File}`, is present in `sys.config`, where File is the path to a text file which contains two lines, first line for username and second line for password
 
 ```
 {avlizer, [{avlizer_confluent, #{
     schema_registry_url => URL, 
-    schema_registry_sasl => {plain, Username, Password}}
+    schema_registry_sasl => {plain, File}}
 }]}
 ```
 

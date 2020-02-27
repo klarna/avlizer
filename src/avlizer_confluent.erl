@@ -306,14 +306,15 @@ terminate(_Reason, _State) ->
 get_registry_base_request() ->
   case application:get_env(?APPLICATION, ?MODULE) of
     {ok, #{schema_registry_url := URL, schema_registry_sasl := SASL}} -> 
-      {URL, get_registry_auth(SASL)};
+      {URL, get_registry_headers_closure(SASL)};
     {ok, #{schema_registry_url := URL}} -> 
-      {URL, []}
+      {URL, get_registry_headers_closure()}
   end.
 
-get_registry_auth({plain, Username, Password}) -> 
-  [{"Authorization", "Basic " ++ base64:encode_to_string(Username ++ ":" ++ Password)}];
-get_registry_auth(_) -> [].
+get_registry_headers_closure({plain, Username, PasswordClosure}) -> 
+  fun() -> [{"Authorization", "Basic " ++ base64:encode_to_string(Username ++ ":" ++ PasswordClosure())}] end;
+get_registry_headers_closure(_Any) -> get_registry_headers_closure().
+get_registry_headers_closure() -> fun() -> [] end.
 
 download(Ref) ->
   gen_server:call(?SERVER, {download, Ref}, infinity).
@@ -358,30 +359,30 @@ unify_ref({Name, Fp}) when is_list(Fp) ->
   unify_ref({Name, iolist_to_binary(Fp)});
 unify_ref(Ref) -> Ref.
 
--spec do_download({string(), [{string(), string()}]}, ref()) -> {ok, binary()} | {error, any()}.
-do_download({SchemaRegistryURL, SchemaRegistryHeaders}, RegId) when is_integer(RegId) ->
+-spec do_download({string(), function()}, ref()) -> {ok, binary()} | {error, any()}.
+do_download({SchemaRegistryURL, SchemaRegistryHeadersClosure}, RegId) when is_integer(RegId) ->
   URL = SchemaRegistryURL ++ "/schemas/ids/" ++ integer_to_list(RegId),
-  httpc_download({URL, SchemaRegistryHeaders});
-do_download({SchemaRegistryURL, SchemaRegistryHeaders}, {Name, Fp}) ->
+  httpc_download({URL, SchemaRegistryHeadersClosure});
+do_download({SchemaRegistryURL, SchemaRegistryHeadersClosure}, {Name, Fp}) ->
   Subject = fp_to_subject(Name, Fp),
   %% fingerprint is unique, hence always version/1
   URL = SchemaRegistryURL ++ "/subjects/" ++ Subject ++ "/versions/1",
-  httpc_download({URL, SchemaRegistryHeaders}).
+  httpc_download({URL, SchemaRegistryHeadersClosure}).
 
-httpc_download(Request) ->
-  case httpc:request(get, Request,
+httpc_download({SchemaRegistryURL, SchemaRegistryHeadersClosure}) ->
+  case httpc:request(get, {SchemaRegistryURL, SchemaRegistryHeadersClosure()},
                      [{timeout, ?HTTPC_TIMEOUT}], []) of
     {ok, {{_, OK, _}, _RspHeaders, RspBody}} when OK >= 200, OK < 300 ->
       #{<<"schema">> := SchemaJSON} =
         jsone:decode(iolist_to_binary(RspBody)),
       {ok, SchemaJSON};
     {ok, {{_, Other, _}, _RspHeaders, RspBody}}->
-      error_logger:error_msg("Failed to download schema from ~w:\n~s",
-                             [Request, RspBody]),
+      error_logger:error_msg("Failed to download schema from ~s:\n~s",
+                             [SchemaRegistryURL, RspBody]),
       {error, {bad_http_code, Other}};
     Other ->
-      error_logger:error_msg("Failed to download schema from ~w:\n~p",
-                             [Request, Other]),
+      error_logger:error_msg("Failed to download schema from ~s:\n~p",
+                             [SchemaRegistryURL, Other]),
       Other
   end.
 
@@ -395,10 +396,10 @@ do_register_schema({Name, Fp}, SchemaJSON) ->
   Subject = fp_to_subject(Name, Fp),
   do_register_schema(Subject, SchemaJSON);
 do_register_schema(Subject, SchemaJSON) ->
-  {SchemaRegistryURL, SchemaRegistryHeaders} = get_registry_base_request(),
+  {SchemaRegistryURL, SchemaRegistryHeadersClosure} = get_registry_base_request(),
   URL = SchemaRegistryURL ++ "/subjects/" ++ Subject ++ "/versions",
   Body = make_schema_reg_req_body(SchemaJSON),
-  Req = {URL, SchemaRegistryHeaders, "application/vnd.schemaregistry.v1+json", Body},
+  Req = {URL, SchemaRegistryHeadersClosure(), "application/vnd.schemaregistry.v1+json", Body},
   Result = httpc:request(post, Req, [{timeout, ?HTTPC_TIMEOUT}], []),
   case Result of
     {ok, {{_, OK, _}, _RspHeaders, RspBody}} when OK >= 200, OK < 300 ->

@@ -2,7 +2,13 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-define(ENV_SCHEMAREGISTRY_URL, "AVLIZER_CONFLUENT_SCHEMAREGISTRY_URL").
+-define(ENV_SCHEMAREGISTRY_SASL_MECHANISM, "AVLIZER_CONFLUENT_SCHEMAREGISTRY_SASL_MECHANISM").
+-define(ENV_SCHEMAREGISTRY_SASL_USERNAME, "AVLIZER_CONFLUENT_SCHEMAREGISTRY_SASL_USERNAME").
+-define(ENV_SCHEMAREGISTRY_SASL_PASSWORD, "AVLIZER_CONFLUENT_SCHEMAREGISTRY_SASL_PASSWORD").
+
 %% The simplest use case, the least performant though.
+
 simple_test_() ->
   with_meck(
    fun() ->
@@ -108,12 +114,41 @@ no_redownload_test_() ->
         ?assertEqual(2, meck_history:num_calls('_', httpc, request, '_'))
     end).
 
-with_meck(RunTestFun) ->
-  {setup, fun setup/0, fun cleanup/1, RunTestFun}.
+simple_sasl_test_() ->
+  with_meck_sasl(
+   fun() ->
+       {ok, Id} = avlizer_confluent:register_schema("subj", test_type()),
+       Bin = avlizer_confluent:encode(Id, 85),
+       85 = avlizer_confluent:decode(Id, Bin)
+   end).
 
-setup() ->
-  os:putenv("AVLIZER_CONFLUENT_SCHEMAREGISTRY_URL", "theurl"),
-  application:ensure_all_started(?APPLICATION),
+simple_sasl_file_test_() ->
+  with_meck_sasl_file(
+   fun() ->
+       {ok, Id} = avlizer_confluent:register_schema("subj", test_type()),
+       Bin = avlizer_confluent:encode(Id, 3),
+       3 = avlizer_confluent:decode(Id, Bin)
+   end).
+
+with_meck(RunTestFun) ->
+  {setup, 
+    fun () -> setup_url_env(), setup_app(), setup_meck() end, 
+    fun (_) -> cleanup_url_env(), cleanup_meck(), cleanup_app() end, 
+    RunTestFun}.
+
+with_meck_sasl(RunTestFun) ->
+  {setup,
+    fun () -> setup_url_env(), setup_sasl_envs(), setup_app(), setup_meck() end, 
+    fun (_) -> cleanup_url_env(), cleanup_sasl_envs(), cleanup_meck(), cleanup_app() end, 
+    RunTestFun}.
+
+with_meck_sasl_file(RunTestFun) ->
+  {setup,
+    fun () -> setup_url_with_sasl_file(), setup_app(), setup_meck() end, 
+    fun (_) -> cleanup_url_with_sasl_file(), cleanup_meck(), cleanup_app() end, 
+    RunTestFun}.
+
+setup_meck() ->
   meck:new(httpc, [passthrough]),
   meck:expect(httpc, request,
               fun(get, {"theurl" ++ _, _}, _, _) ->
@@ -125,11 +160,47 @@ setup() ->
               end),
   ok.
 
-cleanup(_) ->
-  os:unsetenv("AVLIZER_CONFLUENT_SCHEMAREGISTRY_URL"),
-  meck:unload(),
-  application:stop(?APPLICATION),
+cleanup_meck() -> 
+  meck:unload(), 
   ok.
+
+setup_app() -> 
+  application:ensure_all_started(?APPLICATION), 
+  ok.
+
+cleanup_app() -> 
+  application:stop(?APPLICATION), 
+  ok.
+
+setup_url_env() -> 
+  os:putenv(?ENV_SCHEMAREGISTRY_URL, "theurl"), 
+  ok.
+
+cleanup_url_env() -> 
+  os:unsetenv(?ENV_SCHEMAREGISTRY_URL), 
+  ok.
+
+setup_sasl_envs() ->
+  os:putenv(?ENV_SCHEMAREGISTRY_SASL_MECHANISM, "plain"),
+  os:putenv(?ENV_SCHEMAREGISTRY_SASL_USERNAME, "user"),
+  os:putenv(?ENV_SCHEMAREGISTRY_SASL_PASSWORD, "pass"),
+  ok.
+
+cleanup_sasl_envs() ->
+  os:unsetenv(?ENV_SCHEMAREGISTRY_SASL_MECHANISM),
+  os:unsetenv(?ENV_SCHEMAREGISTRY_SASL_USERNAME),
+  os:unsetenv(?ENV_SCHEMAREGISTRY_SASL_PASSWORD),
+  ok.
+
+setup_url_with_sasl_file() ->
+  Vars = #{
+    schema_registry_url => "theurl", 
+    schema_registry_sasl => {plain, "./priv/sasl_test.txt"}},
+  application:set_env(?APPLICATION, avlizer_confluent, Vars),
+  ok.
+
+cleanup_url_with_sasl_file() ->
+  application:set_env(?APPLICATION, avlizer_confluent, #{}).
 
 %% make a fake JSON as if downloaded from schema registry
 test_download() ->
