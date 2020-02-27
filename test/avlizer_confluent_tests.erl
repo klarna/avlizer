@@ -55,6 +55,21 @@ get_encoder_decoder_assign_fp_test_() ->
         42 = avlizer_confluent:decode(Decoder, Bin)
     end).
 
+get_latest_schema_test() ->
+  with_meck(
+    fun() ->
+      {ok, _Id} = avlizer_confluent:register_schema("subj", Schema = test_schema()),
+      {ok, Schema} = avlizer_confluent:get_schema("subj")
+    end).
+
+get_schema_test() ->
+  with_meck(
+    fun() ->
+      {ok, _Id} = avlizer_confluent:register_schema("subj", Schema = test_schema()),
+      {ok, Schema} = avlizer_confluent:get_schema("subj", 1),
+      {ok, Schema} = avlizer_confluent:get_schema("subj", "1")
+    end).
+
 make_encoder_decoder_test_() ->
   with_meck(
     fun() ->
@@ -116,8 +131,8 @@ setup() ->
   application:ensure_all_started(?APPLICATION),
   meck:new(httpc, [passthrough]),
   meck:expect(httpc, request,
-              fun(get, {"theurl" ++ _, _}, _, _) ->
-                  Body = test_download(),
+              fun(get, {"theurl" ++ Endpoint, _}, _, _) ->
+                  Body = test_download(Endpoint),
                   {ok, {{ignore, 200, "OK"}, headers, Body}};
                  (post, {"theurl" ++ _, _, _, _}, _, _) ->
                   Body = <<"{\"id\": 1}">>,
@@ -132,9 +147,12 @@ cleanup(_) ->
   ok.
 
 %% make a fake JSON as if downloaded from schema registry
-test_download() ->
+test_download("/schemas/ids/" ++ _Id) ->
   SchemaJSON = test_schema(),
-  jsone:encode(#{<<"schema">> => SchemaJSON}).
+  jsone:encode(#{<<"schema">> => SchemaJSON});
+test_download(_) ->
+  SchemaJSON = test_schema(),
+  jsone:encode(#{<<"schema">> => SchemaJSON, <<"id">> => <<"1">>}).
 
 test_schema() ->
   avro:encode_schema(test_type()).
