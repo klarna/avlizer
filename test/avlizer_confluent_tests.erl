@@ -2,6 +2,11 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-define(ENV_SCHEMAREGISTRY_URL, "AVLIZER_CONFLUENT_SCHEMAREGISTRY_URL").
+-define(ENV_SCHEMAREGISTRY_AUTH_MECHANISM, "AVLIZER_CONFLUENT_SCHEMAREGISTRY_AUTH_MECHANISM").
+-define(ENV_SCHEMAREGISTRY_AUTH_USERNAME, "AVLIZER_CONFLUENT_SCHEMAREGISTRY_AUTH_USERNAME").
+-define(ENV_SCHEMAREGISTRY_AUTH_PASSWORD, "AVLIZER_CONFLUENT_SCHEMAREGISTRY_AUTH_PASSWORD").
+
 %% The simplest use case, the least performant though.
 simple_test_() ->
   with_meck(
@@ -108,12 +113,41 @@ no_redownload_test_() ->
         ?assertEqual(2, meck_history:num_calls('_', httpc, request, '_'))
     end).
 
-with_meck(RunTestFun) ->
-  {setup, fun setup/0, fun cleanup/1, RunTestFun}.
+simple_auth_test_() ->
+  with_meck_auth(
+   fun() ->
+       {ok, Id} = avlizer_confluent:register_schema("subj", test_type()),
+       Bin = avlizer_confluent:encode(Id, 85),
+       85 = avlizer_confluent:decode(Id, Bin)
+   end).
 
-setup() ->
-  os:putenv("AVLIZER_CONFLUENT_SCHEMAREGISTRY_URL", "theurl"),
-  application:ensure_all_started(?APPLICATION),
+simple_auth_file_test_() ->
+  with_meck_auth_file(
+   fun() ->
+       {ok, Id} = avlizer_confluent:register_schema("subj", test_type()),
+       Bin = avlizer_confluent:encode(Id, 3),
+       3 = avlizer_confluent:decode(Id, Bin)
+   end).
+
+with_meck(RunTestFun) ->
+  {setup, 
+    fun () -> setup_url_env(), setup_app(), setup_meck() end, 
+    fun (_) -> cleanup_url_env(), cleanup_meck(), cleanup_app() end, 
+    RunTestFun}.
+
+with_meck_auth(RunTestFun) ->
+  {setup,
+    fun () -> setup_url_env(), setup_auth_envs(basic), setup_app(), setup_meck() end, 
+    fun (_) -> cleanup_url_env(), cleanup_auth_envs(), cleanup_meck(), cleanup_app() end, 
+    RunTestFun}.
+
+with_meck_auth_file(RunTestFun) ->
+  {setup,
+    fun () -> setup_url_with_auth_file(basic), setup_app(), setup_meck() end, 
+    fun (_) -> cleanup_url_with_auth_file(), cleanup_meck(), cleanup_app() end, 
+    RunTestFun}.
+
+setup_meck() ->
   meck:new(httpc, [passthrough]),
   meck:expect(httpc, request,
               fun(get, {"theurl" ++ _, _}, _, _) ->
@@ -125,11 +159,47 @@ setup() ->
               end),
   ok.
 
-cleanup(_) ->
-  os:unsetenv("AVLIZER_CONFLUENT_SCHEMAREGISTRY_URL"),
-  meck:unload(),
-  application:stop(?APPLICATION),
+cleanup_meck() -> 
+  meck:unload(), 
   ok.
+
+setup_app() -> 
+  application:ensure_all_started(?APPLICATION), 
+  ok.
+
+cleanup_app() -> 
+  application:stop(?APPLICATION), 
+  ok.
+
+setup_url_env() -> 
+  os:putenv(?ENV_SCHEMAREGISTRY_URL, "theurl"), 
+  ok.
+
+cleanup_url_env() -> 
+  os:unsetenv(?ENV_SCHEMAREGISTRY_URL), 
+  ok.
+
+setup_auth_envs(Mechanism) ->
+  os:putenv(?ENV_SCHEMAREGISTRY_AUTH_MECHANISM, atom_to_list(Mechanism)),
+  os:putenv(?ENV_SCHEMAREGISTRY_AUTH_USERNAME, "avlizer_username"),
+  os:putenv(?ENV_SCHEMAREGISTRY_AUTH_PASSWORD, "avlizer_password"),
+  ok.
+
+cleanup_auth_envs() ->
+  os:unsetenv(?ENV_SCHEMAREGISTRY_AUTH_MECHANISM),
+  os:unsetenv(?ENV_SCHEMAREGISTRY_AUTH_USERNAME),
+  os:unsetenv(?ENV_SCHEMAREGISTRY_AUTH_PASSWORD),
+  ok.
+
+setup_url_with_auth_file(Mechanism) ->
+  Vars = #{
+    schema_registry_url => "theurl", 
+    schema_registry_auth => {Mechanism, "./priv/auth_test.txt"}},
+  application:set_env(?APPLICATION, avlizer_confluent, Vars),
+  ok.
+
+cleanup_url_with_auth_file() ->
+  application:set_env(?APPLICATION, avlizer_confluent, #{}).
 
 %% make a fake JSON as if downloaded from schema registry
 test_download() ->
