@@ -276,7 +276,7 @@ encode(Name, Fp, Input) -> encode({Name, Fp}, Input).
 init(_) ->
   ets:new(?CACHE, [named_table, protected, {read_concurrency, true}]),
   %% fail fast for bad config
-  _ = get_registry_url(),
+  _ = get_registry_base_request(),
   {ok, #{}}.
 
 handle_info(Info, State) ->
@@ -303,10 +303,16 @@ terminate(_Reason, _State) ->
 
 %%%_* Internals ================================================================
 
-get_registry_url() ->
-  {ok, #{ schema_registry_url := URL
-        }} = application:get_env(?APPLICATION, ?MODULE),
-  URL.
+get_registry_base_request() ->
+  {ok, Cfg} = application:get_env(?APPLICATION, ?MODULE),
+  URL = maps:get(schema_registry_url, Cfg),
+  case maps:get(schema_registry_auth, Cfg, false) of
+    false -> {URL, []};
+    Auth -> {URL, [get_registry_auth(Auth)]}
+  end.
+
+get_registry_auth({basic, Username, Password}) -> 
+  {"Authorization", "Basic " ++ base64:encode_to_string(Username ++ ":" ++ Password)}.
 
 download(Ref) ->
   gen_server:call(?SERVER, {download, Ref}, infinity).
@@ -317,8 +323,8 @@ handle_download(Ref) ->
     {ok, Schema} ->
       {ok, Schema};
     false ->
-      URL = get_registry_url(),
-      case do_download(URL, Ref) of
+      SchemaRegistryBaseRequest = get_registry_base_request(),
+      case do_download(SchemaRegistryBaseRequest, Ref) of
         {ok, JSON} ->
           Schema = decode_and_insert_cache(Ref, JSON),
           {ok, Schema};
@@ -351,18 +357,17 @@ unify_ref({Name, Fp}) when is_list(Fp) ->
   unify_ref({Name, iolist_to_binary(Fp)});
 unify_ref(Ref) -> Ref.
 
--spec do_download(string(), ref()) -> {ok, binary()} | {error, any()}.
-do_download(RegistryURL, RegId) when is_integer(RegId) ->
-  URL = RegistryURL ++ "/schemas/ids/" ++ integer_to_list(RegId),
-  httpc_download(URL);
-do_download(RegistryURL, {Name, Fp}) ->
+do_download({SchemaRegistryURL, SchemaRegistryHeaders}, RegId) when is_integer(RegId) ->
+  URL = SchemaRegistryURL ++ "/schemas/ids/" ++ integer_to_list(RegId),
+  httpc_download({URL, SchemaRegistryHeaders});
+do_download({SchemaRegistryURL, SchemaRegistryHeaders}, {Name, Fp}) ->
   Subject = fp_to_subject(Name, Fp),
   %% fingerprint is unique, hence always version/1
-  URL = RegistryURL ++ "/subjects/" ++ Subject ++ "/versions/1",
-  httpc_download(URL).
+  URL = SchemaRegistryURL ++ "/subjects/" ++ Subject ++ "/versions/1",
+  httpc_download({URL, SchemaRegistryHeaders}).
 
-httpc_download(URL) ->
-  case httpc:request(get, {URL, _Headers = []},
+httpc_download({SchemaRegistryURL, SchemaRegistryHeaders}) ->
+  case httpc:request(get, {SchemaRegistryURL, SchemaRegistryHeaders},
                      [{timeout, ?HTTPC_TIMEOUT}], []) of
     {ok, {{_, OK, _}, _RspHeaders, RspBody}} when OK >= 200, OK < 300 ->
       #{<<"schema">> := SchemaJSON} =
@@ -370,11 +375,11 @@ httpc_download(URL) ->
       {ok, SchemaJSON};
     {ok, {{_, Other, _}, _RspHeaders, RspBody}}->
       error_logger:error_msg("Failed to download schema from ~s:\n~s",
-                             [URL, RspBody]),
+                             [SchemaRegistryURL, RspBody]),
       {error, {bad_http_code, Other}};
     Other ->
       error_logger:error_msg("Failed to download schema from ~s:\n~p",
-                             [URL, Other]),
+                             [SchemaRegistryURL, Other]),
       Other
   end.
 
@@ -388,11 +393,10 @@ do_register_schema({Name, Fp}, SchemaJSON) ->
   Subject = fp_to_subject(Name, Fp),
   do_register_schema(Subject, SchemaJSON);
 do_register_schema(Subject, SchemaJSON) ->
-  RegistryURL = get_registry_url(),
-  URL = RegistryURL ++ "/subjects/" ++ Subject ++ "/versions",
-  Headers = [],
+  {SchemaRegistryURL, SchemaRegistryHeaders} = get_registry_base_request(),
+  URL = SchemaRegistryURL ++ "/subjects/" ++ Subject ++ "/versions",
   Body = make_schema_reg_req_body(SchemaJSON),
-  Req = {URL, Headers, "application/vnd.schemaregistry.v1+json", Body},
+  Req = {URL, SchemaRegistryHeaders, "application/vnd.schemaregistry.v1+json", Body},
   Result = httpc:request(post, Req, [{timeout, ?HTTPC_TIMEOUT}], []),
   case Result of
     {ok, {{_, OK, _}, _RspHeaders, RspBody}} when OK >= 200, OK < 300 ->

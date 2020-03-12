@@ -1,6 +1,6 @@
 {application, avlizer,
  [{description, "Avro Serializer"},
-  {vsn, "0.3.4"},
+  {vsn, "0.4.0"},
   {registered, []},
   {applications,
    [kernel,
