@@ -49,9 +49,9 @@ maybe_put_schema_registry_auth(Map) ->
    "AVLIZER_CONFLUENT_SCHEMAREGISTRY_AUTH_USERNAME",
    "AVLIZER_CONFLUENT_SCHEMAREGISTRY_AUTH_PASSWORD"
   ], false) of
-    [Mechanism, Username, Password] -> 
+    [Mechanism, Username, Password] ->
       maps:put(schema_registry_auth, {list_to_atom(Mechanism), Username, Password}, Map);
-    false -> 
+    false ->
       maybe_read_auth_file(Map)
   end.
 
@@ -65,16 +65,16 @@ maybe_read_auth_file(Vars) -> Vars.
 maybe_read_auth_file(#{schema_registry_auth := {Mechanism, File}} = Vars, Binary) ->
   Lines = binary:split(Binary, <<"\n">>, [trim_all, global]),
   case Lines of
-    [Username, Password] -> 
+    [Username, Password] ->
       Auth = {Mechanism, binary_to_list(Username), binary_to_list(Password)},
       maps:put(schema_registry_auth, Auth, Vars);
-    _Malformed -> 
-      error_logger:error_msg("Malformed authorization file ~s", [File]),
+    _Malformed ->
+      error_logger:error_msg("~p: Malformed authorization file ~s", [?MODULE, File]),
       Vars
   end.
 
 osenv_all(Names, Default) ->
-  {Values, Unset} = lists:foldr(fun (Name, {Values, Unset}) -> 
+  {Values, Unset} = lists:foldr(fun (Name, {Values, Unset}) ->
     case osenv(Name, false) of
       false -> {Values, [Name | Unset]};
       Value -> {[Value | Values], Unset}
@@ -82,12 +82,13 @@ osenv_all(Names, Default) ->
   end, {[], []}, Names),
 
   case length(Unset) of
-    0 -> 
+    0 ->
       Values;
-    UnsetLength when UnsetLength == length(Names) -> 
+    UnsetLength when UnsetLength == length(Names) ->
       Default;
-    _UnsetLength -> 
-      error_logger:error_msg("Some environment variables aren't set: ~p", [Unset]),
+    _UnsetLength ->
+      error_logger:error_msg("~p: Some environment variables aren't set: ~p",
+                             [?MODULE, Unset]),
       Default
   end.
 
