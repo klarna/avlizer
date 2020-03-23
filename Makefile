@@ -3,8 +3,7 @@ PROJECT = avlizer
 all: compile
 t: eunit xref dialyzer
 
-rebar ?= $(shell which rebar3)
-rebar_cmd = $(rebar) $(profile:%=as %)
+rebar_cmd = rebar3 $(profile:%=as %)
 
 .PHONY: compile
 compile:
@@ -45,5 +44,6 @@ dialyzer:
 	@$(rebar_cmd) dialyzer
 
 .PHONY: hex-publish
+hex-publish: profile=dev
 hex-publish:
 	@$(rebar_cmd) hex publish

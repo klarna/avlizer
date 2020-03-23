@@ -280,11 +280,11 @@ init(_) ->
   {ok, #{}}.
 
 handle_info(Info, State) ->
-  error_logger:error_msg("Unknown info: ~p", [Info]),
+  error_logger:error_msg("~p: Unknown info: ~p", [?MODULE, Info]),
   {noreply, State}.
 
 handle_cast(Cast, State) ->
-  error_logger:error_msg("Unknown cast: ~p", [Cast]),
+  error_logger:error_msg("~p: Unknown cast: ~p", [?MODULE, Cast]),
   {noreply, State}.
 
 handle_call(stop, _From, State) ->
@@ -311,7 +311,7 @@ get_registry_base_request() ->
     Auth -> {URL, [get_registry_auth(Auth)]}
   end.
 
-get_registry_auth({basic, Username, Password}) -> 
+get_registry_auth({basic, Username, Password}) ->
   {"Authorization", "Basic " ++ base64:encode_to_string(Username ++ ":" ++ Password)}.
 
 download(Ref) ->
@@ -374,12 +374,12 @@ httpc_download({SchemaRegistryURL, SchemaRegistryHeaders}) ->
         jsone:decode(iolist_to_binary(RspBody)),
       {ok, SchemaJSON};
     {ok, {{_, Other, _}, _RspHeaders, RspBody}}->
-      error_logger:error_msg("Failed to download schema from ~s:\n~s",
-                             [SchemaRegistryURL, RspBody]),
+      error_logger:error_msg("~p: Failed to download schema from ~s:\n~s",
+                             [?MODULE, SchemaRegistryURL, RspBody]),
       {error, {bad_http_code, Other}};
     Other ->
-      error_logger:error_msg("Failed to download schema from ~s:\n~p",
-                             [SchemaRegistryURL, Other]),
+      error_logger:error_msg("~p: Failed to download schema from ~s:\n~p",
+                             [?MODULE, SchemaRegistryURL, Other]),
       Other
   end.
 
@@ -403,12 +403,12 @@ do_register_schema(Subject, SchemaJSON) ->
       #{<<"id">> := Id} = jsone:decode(iolist_to_binary(RspBody)),
       {ok, Id};
     {ok, {{_, Other, _}, _RspHeaders, RspBody}} ->
-      error_logger:error_msg("Failed to register schema to ~s:\n~s",
-                             [URL, RspBody]),
+      error_logger:error_msg("~p: Failed to register schema to ~s:\n~s",
+                             [?MODULE, URL, RspBody]),
       {error, {bad_http_code, Other}};
     {error, Reason} ->
-      error_logger:error_msg("Failed to register schema to ~s:\n~p",
-                             [URL, Reason]),
+      error_logger:error_msg("~p: Failed to register schema to ~s:\n~p",
+                             [?MODULE, URL, Reason]),
       {error, Reason}
   end.
 
