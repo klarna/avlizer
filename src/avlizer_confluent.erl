@@ -81,6 +81,8 @@
              , fp/0
              ]).
 
+-include_lib("erlavro/include/erlavro.hrl").
+
 %% confluent.io convention magic version
 -define(VSN, 0).
 -define(SERVER, ?MODULE).
@@ -186,7 +188,7 @@ maybe_download(Ref) ->
   end.
 
 %% @doc Register a schema.
--spec register_schema(string(), binary() | avro:type()) ->
+-spec register_schema(string(), binary() | avro:avro_type()) ->
         {ok, regid()} | {error, any()}.
 register_schema(Subject, JSON) when is_binary(JSON) ->
   do_register_schema(Subject, JSON);
@@ -196,7 +198,8 @@ register_schema(Subject, Schema) ->
 
 %% @doc Register schema with name + fingerprint.
 %% crc64 fingerprint is returned.
--spec register_schema_with_fp(string() | binary(), binary() | avro:type()) ->
+-spec register_schema_with_fp(string() | binary(),
+                              binary() | avro:avro_type()) ->
         {ok, fp()} | {error, any()}.
 register_schema_with_fp(Name, JSON) when is_binary(JSON) ->
   Fp = avro:crc64_fingerprint(JSON),
@@ -212,7 +215,8 @@ register_schema_with_fp(Name, Schema) ->
 %% Different from register_schema_with_fp/2, caller is given the liberty to
 %% generate/assign schema fingerprint.
 -spec register_schema_with_fp(string() | binary(), fp(),
-                              binary() | avro:type()) -> ok | {error, any()}.
+                              binary() | avro:avro_type()) ->
+        ok | {error, any()}.
 register_schema_with_fp(Name, Fp, JSON) when is_binary(JSON) ->
   Ref = unify_ref({Name, Fp}),
   DoIt = fun() ->
