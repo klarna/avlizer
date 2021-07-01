@@ -11,7 +11,7 @@
 simple_test_() ->
   with_meck(
    fun() ->
-       {ok, Id} = avlizer_confluent:register_schema("subj", test_type()),
+       {ok, Id} = avlizer_confluent:register_schema("simple", test_type()),
        Bin = avlizer_confluent:encode(Id, 42),
        42 = avlizer_confluent:decode(Id, Bin)
    end).
@@ -28,7 +28,7 @@ simple_fp_test_() ->
 get_encoder_decoder_test_() ->
   with_meck(
     fun() ->
-        {ok, Id} = avlizer_confluent:register_schema("subj", test_schema()),
+        {ok, Id} = avlizer_confluent:register_schema("simple", test_schema()),
         Encoder = avlizer_confluent:get_encoder(Id),
         Decoder = avlizer_confluent:get_decoder(Id),
         Bin = avlizer_confluent:encode(Encoder, 42),
@@ -63,7 +63,7 @@ get_encoder_decoder_assign_fp_test_() ->
 make_encoder_decoder_test_() ->
   with_meck(
     fun() ->
-        {ok, Id} = avlizer_confluent:register_schema("subj", test_schema()),
+        {ok, Id} = avlizer_confluent:register_schema("simple", test_schema()),
         Encoder = avlizer_confluent:make_encoder(Id),
         Decoder = avlizer_confluent:make_decoder(Id),
         Bin = avlizer_confluent:encode(Encoder, 42),
@@ -74,13 +74,38 @@ make_encoder_decoder_with_fp_test_() ->
   with_meck(
     fun() ->
         Name = <<"name-4">>,
-        Fp = "md5-hex",
+        Fp = <<"md5-hex">>,
         Sc = test_schema(),
         ok = avlizer_confluent:register_schema_with_fp(Name, Fp, Sc),
         Encoder = avlizer_confluent:make_encoder(Name, Fp),
         Decoder = avlizer_confluent:make_decoder(Name, Fp),
         Bin = avlizer_confluent:encode(Encoder, 42),
         42 = avlizer_confluent:decode(Decoder, Bin)
+    end).
+
+pass_codec_options_to_decoder_test_() ->
+  with_meck(
+    fun() ->
+      {ok, Id} = avlizer_confluent:register_schema("complex", complex_test_schema()),
+      Encoder = avlizer_confluent:make_encoder(Id),
+      CodecOptions = [{map_type, map}, {record_type, map}, {encoding, avro_binary}],
+      Decoder = avlizer_confluent:make_decoder(Id, CodecOptions),
+      Bin = avlizer_confluent:encode(Encoder, #{f1 => #{a => 1}}),
+      Decoded = avlizer_confluent:decode(Decoder, Bin),
+      true = is_map(Decoded),
+      true = is_map(maps:get(<<"f1">>, Decoded))
+    end).
+
+pass_codec_options_to_decode_test_() ->
+  with_meck(
+    fun() ->
+      {ok, Id} = avlizer_confluent:register_schema("complex", complex_test_schema()),
+      Encoder = avlizer_confluent:make_encoder(Id),
+      CodecOptions = [{map_type, map}, {record_type, map}, {encoding, avro_binary}],
+      Bin = avlizer_confluent:encode(Encoder, #{f1 => #{a => 1}}),
+      Decoded = avlizer_confluent:decode(Id, Bin, CodecOptions),
+      true = is_map(Decoded),
+      true = is_map(maps:get(<<"f1">>, Decoded))
     end).
 
 register_without_cache_test_() ->
@@ -116,7 +141,7 @@ no_redownload_test_() ->
 simple_auth_test_() ->
   with_meck_auth(
    fun() ->
-       {ok, Id} = avlizer_confluent:register_schema("subj", test_type()),
+       {ok, Id} = avlizer_confluent:register_schema("simple", test_type()),
        Bin = avlizer_confluent:encode(Id, 85),
        85 = avlizer_confluent:decode(Id, Bin)
    end).
@@ -124,7 +149,7 @@ simple_auth_test_() ->
 simple_auth_file_test_() ->
   with_meck_auth_file(
    fun() ->
-       {ok, Id} = avlizer_confluent:register_schema("subj", test_type()),
+       {ok, Id} = avlizer_confluent:register_schema("simple", test_type()),
        Bin = avlizer_confluent:encode(Id, 3),
        3 = avlizer_confluent:decode(Id, Bin)
    end).
@@ -150,8 +175,14 @@ with_meck_auth_file(RunTestFun) ->
 setup_meck() ->
   meck:new(httpc, [passthrough]),
   meck:expect(httpc, request,
-              fun(get, {"theurl" ++ _, _}, _, _) ->
+              fun(get, {"theurl/schemas/ids/" ++ ID, _}, _, _) ->
+                  Body = test_download(ID),
+                  {ok, {{ignore, 200, "OK"}, headers, Body}};
+                 (get, {"theurl" ++ _, _}, _, _) ->
                   Body = test_download(),
+                  {ok, {{ignore, 200, "OK"}, headers, Body}};
+                 (post, {"theurl/subjects/complex" ++ _, _, _, _}, _, _) ->
+                  Body = <<"{\"id\": 2}">>,
                   {ok, {{ignore, 200, "OK"}, headers, Body}};
                  (post, {"theurl" ++ _, _, _, _}, _, _) ->
                   Body = <<"{\"id\": 1}">>,
@@ -203,14 +234,29 @@ cleanup_url_with_auth_file() ->
 
 %% make a fake JSON as if downloaded from schema registry
 test_download() ->
-  SchemaJSON = test_schema(),
+  test_download("1").
+
+test_download(Id) ->
+  SchemaJSON = case Id of
+    "1" -> test_schema();
+    "2" -> complex_test_schema()
+  end,
   jsone:encode(#{<<"schema">> => SchemaJSON}).
 
 test_schema() ->
   avro:encode_schema(test_type()).
 
+complex_test_schema() ->
+  avro:encode_schema(test_complex_record()).
+
 test_type() ->
   avro_primitive:int_type().
+
+test_complex_record() ->
+  avro_record:type(
+      <<"MyRecord">>,
+      [avro_record:define_field(f1, avro_map:type(avro_primitive:int_type()))],
+      [{namespace, 'com.example'}]).
 
 %%%_* Emacs ====================================================================
 %%% Local Variables:
