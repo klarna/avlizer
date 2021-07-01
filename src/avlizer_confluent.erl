@@ -59,14 +59,17 @@
 -export([ decode/1
         , decode/2
         , decode/3
+        , decode/4
         , encode/2
         , encode/3
         , make_decoder/1
         , make_decoder/2
+        , make_decoder/3
         , make_encoder/1
         , make_encoder/2
         , get_decoder/1
         , get_decoder/2
+        , get_decoder/3
         , get_encoder/1
         , get_encoder/2
         , maybe_download/1
@@ -88,6 +91,8 @@
 -define(SERVER, ?MODULE).
 -define(CACHE, ?MODULE).
 -define(HTTPC_TIMEOUT, 10000).
+
+-define(DEFAULT_CODEC_OPTIONS, [{encoding, avro_binary}]).
 
 -define(IS_REGID(Id), is_integer(Id)).
 -define(IS_NAME_FP(NF), (is_tuple(Ref) andalso size(Ref) =:= 2)).
@@ -125,11 +130,22 @@ stop() ->
 %% number (or a stream) of objects having the same reference.
 -spec make_decoder(ref()) -> avro:simple_decoder().
 make_decoder(Ref) ->
-  Schema = maybe_download(Ref),
-  avro:make_simple_decoder(Schema, []).
+  do_make_decoder(Ref, ?DEFAULT_CODEC_OPTIONS).
 
--spec make_decoder(name(), fp()) -> avro:simple_decoder().
-make_decoder(Name, Fp) -> make_decoder({Name, Fp}).
+-spec make_decoder(name(), fp() | avro:codec_options()) -> avro:simple_decoder().
+make_decoder(Ref, CodecOptions) when is_list(CodecOptions) ->
+  do_make_decoder(Ref, CodecOptions);
+make_decoder(Name, Fp) ->
+  do_make_decoder({Name, Fp}, ?DEFAULT_CODEC_OPTIONS).
+
+-spec make_decoder(name(), fp(), avro:codec_options()) -> avro:simple_decoder().
+make_decoder(Name, Fp, CodecOptions) ->
+  do_make_decoder({Name, Fp}, CodecOptions).
+
+-spec do_make_decoder(ref(), avro:codec_options()) -> avro:simple_decoder().
+do_make_decoder(Ref, CodecOptions) ->
+  Schema = maybe_download(Ref),
+  avro:make_simple_decoder(Schema, CodecOptions).
 
 %% @doc Make an avro encoder from the given schema reference.
 %% This call has an overhead of ets lookup (and maybe a `gen_server'
@@ -154,11 +170,20 @@ make_encoder(Name, Fp) -> make_encoder({Name, Fp}).
 %% use `make_enodcer/1' for better performance.
 -spec get_decoder(ref()) -> avro:simple_decoder().
 get_decoder(Ref) ->
-  Decoder = avro:make_decoder(?LKUP(Ref), [{encoding, avro_binary}]),
-  fun(Bin) -> Decoder(?ASSIGNED_NAME, Bin) end.
+  do_get_decoder(Ref, ?DEFAULT_CODEC_OPTIONS).
 
--spec get_decoder(name(), fp()) -> avro:simple_decoder().
+-spec get_decoder(name(), fp() | avro:codec_options()) -> avro:simple_decoder().
+get_decoder(Ref, CodecOptions) when is_list(CodecOptions) ->
+  do_get_decoder(Ref, CodecOptions);
 get_decoder(Name, Fp) -> get_decoder({Name, Fp}).
+
+-spec get_decoder(name(), fp(), avro:codec_options()) -> avro:simple_decoder().
+get_decoder(Name, Fp, CodecOptions) -> do_get_decoder({Name, Fp}, CodecOptions).
+
+-spec do_get_decoder(ref(), avro:codec_options()) -> avro:simple_decoder().
+do_get_decoder(Ref, CodecOptions) ->
+  Decoder = avro:make_decoder(?LKUP(Ref), CodecOptions),
+  fun(Bin) -> Decoder(?ASSIGNED_NAME, Bin) end.
 
 %% @doc Get avro decoder by lookup already decode avro schema
 %% from cache, and make a encoder from it.
@@ -255,14 +280,24 @@ decode(Bin) ->
 
 %% @doc Decode untagged payload or with a given schema reference.
 -spec decode(ref() | avro:simple_decoder(), binary()) -> avro:out().
+decode(Bin, CodecOptions) when is_binary(Bin) andalso is_list(CodecOptions) ->
+  {RegId, Payload} = untag_data(Bin),
+  decode(RegId, Payload, CodecOptions);
 decode(Ref, Bin) when ?IS_REF(Ref) ->
-  decode(get_decoder(Ref), Bin);
+  decode(Ref, Bin, ?DEFAULT_CODEC_OPTIONS);
 decode(Decoder, Bin) when is_function(Decoder) ->
   Decoder(Bin).
 
 %% @doc Decode avro binary with given schema name and fingerprint.
 -spec decode(name(), fp(), binary()) -> avro:out().
-decode(Name, Fp, Bin) -> decode({Name, Fp}, Bin).
+decode(Ref, Bin, CodecOptions) when is_list(CodecOptions) ->
+  decode(get_decoder(Ref, CodecOptions), Bin);
+decode(Name, Fp, Bin) ->
+  decode({Name, Fp}, Bin, ?DEFAULT_CODEC_OPTIONS).
+
+-spec decode(name(), fp(), binary(), avro:codec_options()) -> avro:out().
+decode(Name, Fp, Bin, CodecOptions) ->
+  decode({Name, Fp}, Bin, CodecOptions).
 
 %% @doc Encoded avro-binary with schema tag.
 -spec encode(ref() | avro:simple_encoder(), avro:in()) -> binary().
