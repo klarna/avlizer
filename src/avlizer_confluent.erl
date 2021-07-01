@@ -101,6 +101,7 @@
 -type name() :: string() | binary().
 -type fp() :: avro:crc64_fingerprint() | binary().
 -type ref() :: regid() | {name(), fp()}.
+-type codec_options() :: avro:codec_options().
 
 -define(ASSIGNED_NAME, <<"_avlizer_assigned">>).
 -define(LKUP(Ref), fun(?ASSIGNED_NAME) -> ?MODULE:maybe_download(Ref) end).
@@ -132,17 +133,17 @@ stop() ->
 make_decoder(Ref) ->
   do_make_decoder(Ref, ?DEFAULT_CODEC_OPTIONS).
 
--spec make_decoder(name(), fp() | avro:codec_options()) -> avro:simple_decoder().
+-spec make_decoder(name(), fp() | codec_options()) -> avro:simple_decoder().
 make_decoder(Ref, CodecOptions) when is_list(CodecOptions) ->
   do_make_decoder(Ref, CodecOptions);
 make_decoder(Name, Fp) ->
   do_make_decoder({Name, Fp}, ?DEFAULT_CODEC_OPTIONS).
 
--spec make_decoder(name(), fp(), avro:codec_options()) -> avro:simple_decoder().
+-spec make_decoder(name(), fp(), codec_options()) -> avro:simple_decoder().
 make_decoder(Name, Fp, CodecOptions) ->
   do_make_decoder({Name, Fp}, CodecOptions).
 
--spec do_make_decoder(ref(), avro:codec_options()) -> avro:simple_decoder().
+-spec do_make_decoder(ref(), codec_options()) -> avro:simple_decoder().
 do_make_decoder(Ref, CodecOptions) ->
   Schema = maybe_download(Ref),
   avro:make_simple_decoder(Schema, CodecOptions).
@@ -172,15 +173,16 @@ make_encoder(Name, Fp) -> make_encoder({Name, Fp}).
 get_decoder(Ref) ->
   do_get_decoder(Ref, ?DEFAULT_CODEC_OPTIONS).
 
--spec get_decoder(name(), fp() | avro:codec_options()) -> avro:simple_decoder().
+-spec get_decoder(ref(), codec_options()) -> avro:simple_decoder();
+                 (name(), fp()) -> avro:simple_decoder().
 get_decoder(Ref, CodecOptions) when is_list(CodecOptions) ->
   do_get_decoder(Ref, CodecOptions);
 get_decoder(Name, Fp) -> get_decoder({Name, Fp}).
 
--spec get_decoder(name(), fp(), avro:codec_options()) -> avro:simple_decoder().
+-spec get_decoder(name(), fp(), codec_options()) -> avro:simple_decoder().
 get_decoder(Name, Fp, CodecOptions) -> do_get_decoder({Name, Fp}, CodecOptions).
 
--spec do_get_decoder(ref(), avro:codec_options()) -> avro:simple_decoder().
+-spec do_get_decoder(ref(), codec_options()) -> avro:simple_decoder().
 do_get_decoder(Ref, CodecOptions) ->
   Decoder = avro:make_decoder(?LKUP(Ref), CodecOptions),
   fun(Bin) -> Decoder(?ASSIGNED_NAME, Bin) end.
@@ -279,7 +281,9 @@ decode(Bin) ->
   decode(RegId, Payload).
 
 %% @doc Decode untagged payload or with a given schema reference.
--spec decode(ref() | avro:simple_decoder(), binary()) -> avro:out().
+-spec decode(binary(), codec_options()) -> avro:out();
+            (ref(), binary()) -> avro:out();
+            (avro:simple_decoder(), binary()) -> avro:out().
 decode(Bin, CodecOptions) when is_binary(Bin) andalso is_list(CodecOptions) ->
   {RegId, Payload} = untag_data(Bin),
   decode(RegId, Payload, CodecOptions);
@@ -289,13 +293,14 @@ decode(Decoder, Bin) when is_function(Decoder) ->
   Decoder(Bin).
 
 %% @doc Decode avro binary with given schema name and fingerprint.
--spec decode(name(), fp(), binary()) -> avro:out().
+-spec decode(name(), fp(), binary()) -> avro:out();
+      (ref(), binary(), codec_options()) -> avro:out().
 decode(Ref, Bin, CodecOptions) when is_list(CodecOptions) ->
   decode(get_decoder(Ref, CodecOptions), Bin);
 decode(Name, Fp, Bin) ->
   decode({Name, Fp}, Bin, ?DEFAULT_CODEC_OPTIONS).
 
--spec decode(name(), fp(), binary(), avro:codec_options()) -> avro:out().
+-spec decode(name(), fp(), binary(), codec_options()) -> avro:out().
 decode(Name, Fp, Bin, CodecOptions) ->
   decode({Name, Fp}, Bin, CodecOptions).
 
