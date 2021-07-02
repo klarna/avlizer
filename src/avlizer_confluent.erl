@@ -168,7 +168,7 @@ make_encoder(Name, Fp) -> make_encoder({Name, Fp}).
 %% @doc Get avro decoder by lookup already decoded avro schema
 %% from cache, and make a decoder from it.
 %% Schema lookup is performed inside the decoder function for each call,
-%% use `make_enodcer/1' for better performance.
+%% use `make_encoder/1' for better performance.
 -spec get_decoder(ref()) -> avro:simple_decoder().
 get_decoder(Ref) ->
   do_get_decoder(Ref, ?DEFAULT_CODEC_OPTIONS).
@@ -190,7 +190,7 @@ do_get_decoder(Ref, CodecOptions) ->
 %% @doc Get avro decoder by lookup already decode avro schema
 %% from cache, and make a encoder from it.
 %% Schema lookup is performed inside the encoder function for each call,
-%% use `make_enodcer/1' for better performance.
+%% use `make_encoder/1' for better performance.
 -spec get_encoder(ref()) -> avro:simple_encoder().
 get_encoder(Ref) ->
   Encoder = avro:make_encoder(?LKUP(Ref), [{encoding, avro_binary}]),
