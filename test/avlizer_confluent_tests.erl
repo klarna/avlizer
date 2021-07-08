@@ -74,7 +74,7 @@ make_encoder_decoder_with_fp_test_() ->
   with_meck(
     fun() ->
         Name = <<"name-4">>,
-        Fp = <<"md5-hex">>,
+        Fp = "md5-hex",
         Sc = test_schema(),
         ok = avlizer_confluent:register_schema_with_fp(Name, Fp, Sc),
         Encoder = avlizer_confluent:make_encoder(Name, Fp),

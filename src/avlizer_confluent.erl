@@ -99,7 +99,7 @@
 -define(IS_REF(Ref), (?IS_REGID(Ref) orelse ?IS_NAME_FP(Ref))).
 -type regid() :: non_neg_integer().
 -type name() :: string() | binary().
--type fp() :: avro:crc64_fingerprint() | binary().
+-type fp() :: avro:crc64_fingerprint() | binary() | string().
 -type ref() :: regid() | {name(), fp()}.
 -type codec_options() :: avro:codec_options().
 
@@ -134,7 +134,7 @@ make_decoder(Ref) ->
   do_make_decoder(Ref, ?DEFAULT_CODEC_OPTIONS).
 
 -spec make_decoder(name(), fp() | codec_options()) -> avro:simple_decoder().
-make_decoder(Ref, CodecOptions) when is_list(CodecOptions) ->
+make_decoder(Ref, CodecOptions) when ?IS_REF(Ref) ->
   do_make_decoder(Ref, CodecOptions);
 make_decoder(Name, Fp) ->
   do_make_decoder({Name, Fp}, ?DEFAULT_CODEC_OPTIONS).
@@ -175,7 +175,7 @@ get_decoder(Ref) ->
 
 -spec get_decoder(ref(), codec_options()) -> avro:simple_decoder();
                  (name(), fp()) -> avro:simple_decoder().
-get_decoder(Ref, CodecOptions) when is_list(CodecOptions) ->
+get_decoder(Ref, CodecOptions) when ?IS_REF(Ref) ->
   do_get_decoder(Ref, CodecOptions);
 get_decoder(Name, Fp) -> get_decoder({Name, Fp}).
 
