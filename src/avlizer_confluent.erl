@@ -133,7 +133,8 @@ stop() ->
 make_decoder(Ref) ->
   do_make_decoder(Ref, ?DEFAULT_CODEC_OPTIONS).
 
--spec make_decoder(name(), fp() | codec_options()) -> avro:simple_decoder().
+-spec make_decoder(ref(), codec_options()) -> avro:simple_decoder();
+                  (name(), fp()) -> avro:simple_decoder().
 make_decoder(Ref, CodecOptions) when ?IS_REF(Ref) ->
   do_make_decoder(Ref, CodecOptions);
 make_decoder(Name, Fp) ->
@@ -277,10 +278,10 @@ untag_data(<<?VSN:8, RegId:32/unsigned-integer, Body/binary>>) ->
 %% @doc Decode tagged payload
 -spec decode(binary()) -> avro:out().
 decode(Bin) ->
-  {RegId, Payload} = untag_data(Bin),
-  decode(RegId, Payload).
+  decode(Bin, ?DEFAULT_CODEC_OPTIONS).
 
 %% @doc Decode untagged payload or with a given schema reference.
+%% Decode tagged payload with custom codec options
 -spec decode(binary(), codec_options()) -> avro:out();
             (ref(), binary()) -> avro:out();
             (avro:simple_decoder(), binary()) -> avro:out().
@@ -293,6 +294,7 @@ decode(Decoder, Bin) when is_function(Decoder) ->
   Decoder(Bin).
 
 %% @doc Decode avro binary with given schema name and fingerprint.
+%% decode avro binary with given schema reference and custom codec options
 -spec decode(name(), fp(), binary()) -> avro:out();
       (ref(), binary(), codec_options()) -> avro:out().
 decode(Ref, Bin, CodecOptions) when is_list(CodecOptions) ->
