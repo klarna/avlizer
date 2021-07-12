@@ -281,7 +281,7 @@ decode(Bin) ->
   decode(Bin, ?DEFAULT_CODEC_OPTIONS).
 
 %% @doc Decode untagged payload or with a given schema reference.
-%% Decode tagged payload with custom codec options
+%% Decode tagged payload with custom codec options.
 -spec decode(binary(), codec_options()) -> avro:out();
             (ref(), binary()) -> avro:out();
             (avro:simple_decoder(), binary()) -> avro:out().
@@ -294,7 +294,7 @@ decode(Decoder, Bin) when is_function(Decoder) ->
   Decoder(Bin).
 
 %% @doc Decode avro binary with given schema name and fingerprint.
-%% decode avro binary with given schema reference and custom codec options
+%% Decode avro binary with given schema reference and custom codec options.
 -spec decode(name(), fp(), binary()) -> avro:out();
       (ref(), binary(), codec_options()) -> avro:out().
 decode(Ref, Bin, CodecOptions) when is_list(CodecOptions) ->
