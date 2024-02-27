@@ -413,8 +413,9 @@ do_download({SchemaRegistryURL, SchemaRegistryHeaders}, {Name, Fp}) ->
   httpc_download({URL, SchemaRegistryHeaders}).
 
 httpc_download({SchemaRegistryURL, SchemaRegistryHeaders}) ->
+  HttpOptions = [{timeout, ?HTTPC_TIMEOUT}, {ssl, [{verify, verify_none}]}],
   case httpc:request(get, {SchemaRegistryURL, SchemaRegistryHeaders},
-                     [{timeout, ?HTTPC_TIMEOUT}], []) of
+                     HttpOptions, []) of
     {ok, {{_, OK, _}, _RspHeaders, RspBody}} when OK >= 200, OK < 300 ->
       #{<<"schema">> := SchemaJSON} =
         jsone:decode(iolist_to_binary(RspBody)),
@@ -443,7 +444,8 @@ do_register_schema(Subject, SchemaJSON) ->
   URL = SchemaRegistryURL ++ "/subjects/" ++ Subject ++ "/versions",
   Body = make_schema_reg_req_body(SchemaJSON),
   Req = {URL, SchemaRegistryHeaders, "application/vnd.schemaregistry.v1+json", Body},
-  Result = httpc:request(post, Req, [{timeout, ?HTTPC_TIMEOUT}], []),
+  HttpOptions = [{timeout, ?HTTPC_TIMEOUT}, {ssl, [{verify, verify_none}]}],
+  Result = httpc:request(post, Req, HttpOptions, []),
   case Result of
     {ok, {{_, OK, _}, _RspHeaders, RspBody}} when OK >= 200, OK < 300 ->
       #{<<"id">> := Id} = jsone:decode(iolist_to_binary(RspBody)),
